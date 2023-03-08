@@ -57,8 +57,8 @@ def notes_to_messages(notes):
         val = note_name_to_value(note.name)
 
         # message format: (time, on or off, value, velocity)
-        messages.append((note.start_time*scale, 'note_on', val, 64))
-        messages.append((note.end_time*scale, 'note_off', val, 64))
+        messages.append((note.start_time*scale, 'note_on', val, 90))
+        messages.append((note.end_time*scale, 'note_off', val, 90))
     
     return messages
 

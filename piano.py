@@ -138,8 +138,6 @@ def pick_dumb_word():
         'terrible',
         'awful',
         'horrible',
-        'crappy',
-        'crap',
         'garbage',
         'trash',
         'useless',
@@ -323,7 +321,7 @@ class NoteEntry(tk.Canvas):
     def is_inside_note(self, x, y):
         resize_gap = 8
 
-        note_x = int((x // grid_spacing) * grid_spacing) + self.x_offset
+        note_x = int((x // grid_spacing) * grid_spacing)
         note_y = int((y // grid_spacing) * grid_spacing)
 
         for note in self.notes:
@@ -335,7 +333,7 @@ class NoteEntry(tk.Canvas):
             )
             if inside_note:
                 # print(note_x, note.start_time, note.end_time, note.end_time - x)
-                if note.end_time - (x + self.x_offset) < resize_gap:
+                if note.end_time - x < resize_gap:
                     # print('resize')
                     return note, 'resize'
                 else:
@@ -345,7 +343,7 @@ class NoteEntry(tk.Canvas):
             return (False, False)
 
     def check_hover(self, x, y):
-        x, y = x + self.canvasx(0), y + self.canvasy(0)
+        x, y = x + self.canvasx(0) + self.x_offset, y + self.canvasy(0)
 
         note, action = self.is_inside_note(x, y)
 
@@ -372,6 +370,7 @@ class NoteEntry(tk.Canvas):
 
         canvas = event.widget
 
+        orig_x, orig_y = event.x, event.y
         x, y = event.x + canvas.canvasx(0) + canvas.x_offset, event.y + canvas.canvasy(0)
         grid_x = int((x // grid_spacing) * grid_spacing)
         grid_y = int((y // grid_spacing) * grid_spacing)
@@ -385,13 +384,15 @@ class NoteEntry(tk.Canvas):
             canvas.active_note = note
             canvas.action = 'move'
             canvas.active_note_offset = grid_x - note.start_time
-            canvas.check_hover(x, y)
+            canvas.check_hover(orig_x, orig_y)
             canvas.config(cursor='fleur')
         else:
             canvas.active_note = note
             canvas.active_note_offset = grid_x - note.start_time
+            canvas.new_note_width = note.duration
 
         canvas.mainapp.menu_controls.play_single_note(note)
+        canvas.last_played_note = canvas.active_note.name
     
     @staticmethod
     def left_click_drag_handler(event):
@@ -409,11 +410,13 @@ class NoteEntry(tk.Canvas):
                     canvas.active_note.start_time = 0
                 canvas.active_note.end_time = canvas.active_note.start_time + duration
                 canvas.active_note.name = notes[total_notes - grid_y // note_height - 1]
+                if canvas.active_note.name != canvas.last_played_note:
+                    canvas.mainapp.menu_controls.play_single_note(canvas.active_note)
+                    canvas.last_played_note = canvas.active_note.name
             elif canvas.action == 'resize':
                 canvas.active_note.end_time = grid_x
                 if canvas.active_note.duration <= 0:
                     canvas.active_note.end_time = canvas.active_note.start_time + 20
-
                 canvas.new_note_width = canvas.active_note.duration
             canvas.draw()
 
