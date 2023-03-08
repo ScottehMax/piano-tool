@@ -1,0 +1,9 @@
+venv/
+__pycache__/
+gifs/
+
+*.notes
+*.mid
+*.mp4
+*.sf2
+*.webm
