@@ -7,5 +7,3 @@ Requires FluidSynth for sound output.
 <p align="center">
     <img src="https://raw.githubusercontent.com/ScottehMax/piano-tool/main/assets/screenshot.png" alt="Screenshot"/>
 </p>
-
-This project is licensed under the terms of the MIT license.
