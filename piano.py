@@ -8,7 +8,7 @@ import time
 import threading
 
 from note import Note, notes, total_notes, export_to_midi, convert_to_fluidsynth, open_synth
-
+from fastcanvas import FastCanvas
 
 note_width = 40
 note_height = 20
@@ -75,7 +75,7 @@ class MenuControls(tk.Frame):
 
         self.playing_text = tk.Label(self, textvariable=self.playing)
         self.playing_text.grid(row=0, column=8)
-    
+
     def export_as_midi(self):
         export_to_midi(self.parent.note_entry.notes, self.tempo_var)
 
@@ -124,10 +124,10 @@ class MenuControls(tk.Frame):
             args=([new_note], self.tempo_var, self.playing, self.synth),
         )
         t.start()
-    
+
     def stop(self):
         self.playing.set("Stopped")
-        
+
 
 def pick_dumb_word():
     words = [
@@ -154,7 +154,6 @@ class MainApp(tk.Tk):
         self.create_widgets()
 
     def canvas_yviews(self, *args, **kwargs):
-        # print(args, kwargs)
         self.piano_roll.yview(*args, **kwargs)
         self.note_entry.yview(*args, **kwargs)
 
@@ -200,10 +199,9 @@ class MainApp(tk.Tk):
         self.note_entry.configure(yscrollcommand=self.vertical_scrollbar.set)
         self.note_entry.configure(scrollregion=(0, 0, ne_width, ne_height))
 
-
         self.menu_controls = MenuControls(self, synth=self.synth)
         self.menu_controls.grid(row=1, column=0)
-    
+
     def scroll_canvases(self, event):
         self.piano_roll.yview_scroll(int(-1*(event.delta/120)), "units")
         self.note_entry.yview_scroll(int(-1*(event.delta/120)), "units")
@@ -215,20 +213,18 @@ class MainApp(tk.Tk):
 
             if args[2] == 'pages':
                 direction *= 4
-            
+
             self.note_entry.x_offset += 20 * direction
         # elif args[0] == 'moveto':
             # self.note_entry.x_offset -= int((0.25 - float(args[1])) * 10)
-        
+
         if self.note_entry.x_offset < 0:
             self.note_entry.x_offset = 0
-        
+
         self.note_entry.draw()
 
 
-
-
-class PianoRoll(tk.Canvas):
+class PianoRoll(FastCanvas):
     def __init__(self, parent, mainapp, **kwargs):
         super().__init__(parent, width=note_width, height=400, borderwidth=0, highlightthickness=0, **kwargs)
         self.parent = parent
@@ -240,21 +236,19 @@ class PianoRoll(tk.Canvas):
             x = 0
             y = i * note_height
             fill = cs.black_keys if note[1] == '#' else cs.white_keys if note[0] != 'C' else cs.c_keys
-            # print(note, x, y)
             self.create_rectangle(x, y, x+note_width, y+note_height+1, fill=fill)
             # if note is C, draw the note name
             if note[:-1] == 'C':
-                # print(note, x, y)
                 self.create_text(x+note_width - 4, y+note_height/2, text=note, anchor='e')
 
 
-
-class NoteEntry(tk.Canvas):
+class NoteEntry(FastCanvas):
     def __init__(self, parent, mainapp, synth=None, **kwargs):
         self.width = 800
         self.height = 400
         self.x_offset = 0
         self.new_note_width = 40
+        self.resize_gap = 8
         self.synth = synth
         self.notes = []
         super().__init__(parent, width=self.width, height=self.height, borderwidth=0, highlightthickness=0, **kwargs)
@@ -269,7 +263,7 @@ class NoteEntry(tk.Canvas):
         self.bind('<Configure>', self.resize_canvas)
 
     def draw(self):
-        self.delete('all')
+        self.invalidate()
 
         self.width = self.winfo_width()
 
@@ -284,7 +278,7 @@ class NoteEntry(tk.Canvas):
             adjusted_x = x + self.x_offset
             fill = cs.grid_lines_vert_16 if adjusted_x % 64 == 0 else cs.grid_lines_vert_4 if adjusted_x % 16 == 0 else cs.grid_lines_vert
             self.create_line(x, 0, x, total_notes * note_height, fill=fill)
-    
+
         for y in range(0, total_notes+1):
             y = y * note_height
             self.create_line(0, y, self.width, y, fill=cs.grid_lines_horiz_octave if y % (note_height * 12) == 0 else cs.grid_lines_horiz)
@@ -297,7 +291,7 @@ class NoteEntry(tk.Canvas):
                 partial_width = note.end_time - self.x_offset
                 note_x = 0
                 note_y = total_notes * note_height - (notes.index(note.name) + 1) * note_height
-                self.create_rectangle(note_x, note_y, partial_width, note_y+note_height, fill=cs.note)
+                self.create_rectangle(note_x, note_y, partial_width, note_y+note_height, fill=cs.note, width=1)
 
                 # add note text
                 self.create_text(note_x + 6, note_y+note_height/2, text=note.name, anchor='w')
@@ -305,39 +299,34 @@ class NoteEntry(tk.Canvas):
             elif note.start_time >= self.x_offset and note.start_time < self.x_offset + self.width:
                 note_x = note.start_time - self.x_offset
                 note_y = total_notes * note_height - (notes.index(note.name) + 1) * note_height
-                self.create_rectangle(note_x, note_y, note_x+note.duration, note_y+note_height, fill=cs.note)
+                self.create_rectangle(note_x, note_y, note_x+note.duration, note_y+note_height, fill=cs.note, width=1)
 
                 # add note text
                 self.create_text(note_x + 6, note_y+note_height/2, text=note.name, anchor='w')
-        
+
     def add_note(self, note):
         self.notes.append(note)
         self.draw()
-    
+
     def remove_note(self, note):
         self.notes.remove(note)
         self.draw()
 
     def is_inside_note(self, x, y):
-        resize_gap = 8
-
         note_x = int((x // grid_spacing) * grid_spacing)
         note_y = int((y // grid_spacing) * grid_spacing)
 
         for note in self.notes:
             inside_note = (
-                note_x >= note.start_time 
-                and note_x < note.end_time 
+                note_x >= note.start_time
+                and note_x < note.end_time
                 and note_y >= total_notes * note_height - (notes.index(note.name) + 1) * note_height
                 and note_y <= total_notes * note_height - (notes.index(note.name) + 1) * note_height
             )
             if inside_note:
-                # print(note_x, note.start_time, note.end_time, note.end_time - x)
-                if note.end_time - x < resize_gap:
-                    # print('resize')
+                if note.end_time - x < self.resize_gap:
                     return note, 'resize'
                 else:
-                    # print('move')
                     return note, 'move'
         else:
             return (False, False)
@@ -354,7 +343,7 @@ class NoteEntry(tk.Canvas):
                 self.config(cursor='fleur')
         else:
             self.config(cursor='arrow')
-    
+
     def resize_canvas(self, event):
         bb = self.bbox('all')
         if bb is not None:
@@ -363,11 +352,9 @@ class NoteEntry(tk.Canvas):
             self.config(scrollregion=(0, 0, ne_width, ne_height))
             self.update()
             self.draw()
-    
+
     @staticmethod
     def left_click_handler(event):
-        # print(event)
-
         canvas = event.widget
 
         orig_x, orig_y = event.x, event.y
@@ -393,16 +380,23 @@ class NoteEntry(tk.Canvas):
 
         canvas.mainapp.menu_controls.play_single_note(note)
         canvas.last_played_note = canvas.active_note.name
-    
+
     @staticmethod
     def left_click_drag_handler(event):
         canvas = event.widget
         x, y = event.x + canvas.canvasx(0) + canvas.x_offset, event.y + canvas.canvasy(0)
+
+        # prevent dragging above the top note (out of the window) going out of bounds later
+        if y < 0:
+            y = 0
+        # -1 to prevent dragging below the bottom note playing the top one
+        elif y > total_notes * note_height - 1:
+            y = total_notes * note_height - 1
+
         grid_x = int((x // grid_spacing) * grid_spacing)
         grid_y = int((y // grid_spacing) * grid_spacing)
 
         if canvas.active_note:
-            # print(canvas.action)
             if canvas.action == 'move':
                 duration = canvas.active_note.duration
                 canvas.active_note.start_time = grid_x - canvas.active_note_offset
@@ -414,6 +408,10 @@ class NoteEntry(tk.Canvas):
                     canvas.mainapp.menu_controls.play_single_note(canvas.active_note)
                     canvas.last_played_note = canvas.active_note.name
             elif canvas.action == 'resize':
+                # don't jump back by 1 size just after resizing
+                if x < canvas.active_note.end_time and x + canvas.resize_gap > canvas.active_note.end_time:
+                    return
+
                 canvas.active_note.end_time = grid_x
                 if canvas.active_note.duration <= 0:
                     canvas.active_note.end_time = canvas.active_note.start_time + 20
@@ -428,11 +426,19 @@ class NoteEntry(tk.Canvas):
             if note.start_time <= x <= note.end_time and note.name == notes[total_notes - y// note_height - 1]:
                 canvas.remove_note(note)
                 break
-    
+
     @staticmethod
     def right_click_drag_handler(event):
         canvas = event.widget
         x, y = int(event.x + canvas.canvasx(0) + canvas.x_offset), int(event.y + canvas.canvasy(0))
+
+        # prevent dragging above the top note (out of the window) going out of bounds later
+        if y < 0:
+            y = 0
+        # -1 to prevent dragging below the bottom note playing the top one
+        elif y > total_notes * note_height - 1:
+            y = total_notes * note_height - 1
+
         for note in canvas.notes:
             if note.start_time <= x <= note.end_time and note.name == notes[total_notes - y// note_height - 1]:
                 canvas.remove_note(note)
