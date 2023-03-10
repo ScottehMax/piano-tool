@@ -49,15 +49,12 @@ class FastCanvas(tk.Canvas):
         so they can be reused.
         """
         for rect in self.active_rectangles:
-            # rect.active = False
             self.itemconfigure(rect.tk_id, state=tk.HIDDEN)
         
         for line in self.active_lines:
-            # line.active = False
             self.itemconfigure(line.tk_id, state=tk.HIDDEN)
 
         for text in self.active_texts:
-            # text.active = False
             self.itemconfigure(text.tk_id, state=tk.HIDDEN)
         
         self.inactive_rectangles = self.active_rectangles

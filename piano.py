@@ -215,8 +215,6 @@ class MainApp(tk.Tk):
                 direction *= 4
 
             self.note_entry.x_offset += 20 * direction
-        # elif args[0] == 'moveto':
-            # self.note_entry.x_offset -= int((0.25 - float(args[1])) * 10)
 
         if self.note_entry.x_offset < 0:
             self.note_entry.x_offset = 0
@@ -273,15 +271,15 @@ class NoteEntry(FastCanvas):
             fill = cs.grid_bg_black if note[1] == '#' else cs.grid_bg_white
             self.create_rectangle(0, y, self.width, y+note_height, fill=fill, width=0)
 
-        # Draw the grid
+        # Draw the grid, horizontal lines first, then vertical
+        for y in range(0, total_notes+1):
+            y = y * note_height
+            self.create_line(0, y, self.width, y, fill=cs.grid_lines_horiz_octave if y % (note_height * 12) == 0 else cs.grid_lines_horiz)
+
         for x in range(0, self.width, grid_spacing):
             adjusted_x = x + self.x_offset
             fill = cs.grid_lines_vert_16 if adjusted_x % 64 == 0 else cs.grid_lines_vert_4 if adjusted_x % 16 == 0 else cs.grid_lines_vert
             self.create_line(x, 0, x, total_notes * note_height, fill=fill)
-
-        for y in range(0, total_notes+1):
-            y = y * note_height
-            self.create_line(0, y, self.width, y, fill=cs.grid_lines_horiz_octave if y % (note_height * 12) == 0 else cs.grid_lines_horiz)
 
         # Draw the notes
         for note in self.notes:
